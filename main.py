@@ -20,11 +20,10 @@ class HomographyTool():
         self.frame = Frame(self.parent)
         self.frame.columnconfigure(0, weight=47)
         self.frame.columnconfigure(1, weight=45)
-        self.frame.columnconfigure(2, weight=4)
-        self.frame.columnconfigure(3, weight=4)
+
         
 
-        self.frame.rowconfigure(2, weight=4)
+        self.frame.rowconfigure(3, weight=4)
         
         
         self.frame.pack(fill=BOTH, expand=1)
@@ -33,17 +32,12 @@ class HomographyTool():
         # initialize global state
         self.imageDir = ''
         self.imageList= []
-        self.egDir = ''
-        self.egList = []
         self.outDir = ''
         self.cur = 0
         self.total = 0
-        self.category = 0
         self.imagename = ''
         self.labelfilename = ''
         self.tkimg = None
-        self.currentLabelclass = ''
-        self.cla_can_temp = []
 
         # initialize mouse state
         self.POINTS = []
@@ -63,12 +57,12 @@ class HomographyTool():
         self.svSourcePath.set(os.path.join(os.getcwd(),"Images"))
         
         # input image dir button
-        self.srcDirBtn = Button(self.frame, text="Image input folder", command=self.selectSrcDir)
+        self.srcDirBtn = Button(self.frame, text="Folder of Raw Image", command=self.selectSrcDir)
         self.srcDirBtn.grid(row=0, column=2, padx=2, sticky=W+E)
         
         # load button
         self.ldBtn = Button(self.frame, text="Load Dir", command=self.loadDir)
-        self.ldBtn.grid(row=0, column=3, rowspan=2, padx=2, sticky=W+E+N+S)
+        self.ldBtn.grid(row=0, column=3, rowspan=3, padx=2, sticky=W+E+N+S)
         
         # label file save dir entry
         self.svDestinationPath = StringVar()
@@ -77,8 +71,18 @@ class HomographyTool():
         self.svDestinationPath.set(os.path.join(os.getcwd(),"Labels"))
         
         # label file save dir button
-        self.desDirBtn = Button(self.frame, text="Output folder", command=self.selectDesDir)
+        self.desDirBtn = Button(self.frame, text="Folder to Save Logs", command=self.selectDesDir)
         self.desDirBtn.grid(row=1, column=2, padx=2, sticky=W+E)
+        
+        # label file save dir entry
+        self.saveImgPath = StringVar()
+        self.entrySave = Entry(self.frame, textvariable=self.saveImgPath)
+        self.entrySave.grid(row=2, column=0, columnspan=2, padx=2, sticky=W+E)
+        self.saveImgPath.set(os.path.join(os.getcwd(),"Cropped"))
+        
+        # label file save dir button
+        self.savePathBtn = Button(self.frame, text="Folder to Save Results", command=self.selectDesDir)
+        self.savePathBtn.grid(row=2, column=2, padx=2, sticky=W+E)
 
 
         # main panel for labeling
@@ -89,11 +93,11 @@ class HomographyTool():
         self.parent.bind("s", self.cancelPolygon)
         self.parent.bind("a", self.prevImage) # press 'a' to go backforward
         self.parent.bind("d", self.nextImage) # press 'd' to go forward
-        self.mainPanel.grid(row = 2, column = 0, rowspan = 2, columnspan=2, sticky = W+N+E+S)
+        self.mainPanel.grid(row = 3, column = 0, rowspan = 2, columnspan=2, sticky = W+N+E+S)
         
         # example pannel for illustration
         self.egPanel = Frame(self.frame)
-        self.egPanel.grid(row = 2, column = 1, sticky = W+N+E+S)
+        self.egPanel.grid(row = 3, column = 1, sticky = W+N+E+S)
         self.tmpLabel2 = Label(self.egPanel, text = "Results:")
         self.tmpLabel2.pack(side = TOP, pady = 5)
         self.result = Label(self.egPanel)
@@ -101,7 +105,7 @@ class HomographyTool():
         
         # Target Size
         self.targetPanel = Frame(self.frame)
-        self.targetPanel.grid(row = 2, column = 2, columnspan = 2, sticky = W+N+E+S)
+        self.targetPanel.grid(row = 3, column = 2, columnspan = 2, sticky = W+N+E+S)
         self.targetPanel.columnconfigure(0, weight=1)
         self.targetPanel.columnconfigure(1, weight=1)
         self.targetPanel.rowconfigure(15, weight=1)
@@ -149,10 +153,10 @@ class HomographyTool():
         Label(self.targetPanel, text = 'Cycles', bg='yellow').grid(row = 9, column = 0, columnspan = 2, pady=10, sticky = W+E)
         self.drift = DoubleVar()
         Label(self.targetPanel, text = 'Drift Ratio (%)').grid(row = 10, column = 0, columnspan = 2, pady=5, sticky = W+E)
-        Entry(self.targetPanel, textvariable=self.drift).grid(row = 11, column = 0, columnspan = 2, sticky = W+E)
+        self.driftEntry = Entry(self.targetPanel, textvariable=self.drift).grid(row = 11, column = 0, columnspan = 2, sticky = W+E)
         self.cycle = DoubleVar()
         Label(self.targetPanel, text = 'Cycle').grid(row = 12, column = 0, columnspan = 2, pady=5, sticky = W+E)
-        Entry(self.targetPanel, textvariable=self.cycle).grid(row = 13, column = 0, columnspan = 2, sticky = W+E)
+        self.cycleEntry = Entry(self.targetPanel, textvariable=self.cycle).grid(row = 13, column = 0, columnspan = 2, sticky = W+E)
 
         # showing bbox info 
         self.lb1 = Label(self.targetPanel, text = 'Source Points', bg='yellow')
@@ -162,11 +166,11 @@ class HomographyTool():
         
         # delete bbox
         self.btnDel = Button(self.frame, text = 'Delete', command = self.clearPoints)
-        self.btnDel.grid(row = 3, column = 2, columnspan=2, pady=5, sticky =  W+N+E+S)
+        self.btnDel.grid(row = 4, column = 2, columnspan=2, pady=5, sticky =  W+N+E+S)
 
         # control panel for image navigation
         self.ctrPanel = Frame(self.frame)
-        self.ctrPanel.grid(row = 4, column = 0, columnspan = 4, sticky = W+E)
+        self.ctrPanel.grid(row = 5, column = 0, columnspan = 4, sticky = W+E)
         self.prevBtn = Button(self.ctrPanel, text='<< Prev', width = 10, command = self.prevImage)
         self.prevBtn.pack(side = LEFT, padx = 5, pady = 3)
         self.nextBtn = Button(self.ctrPanel, text='Next >>', width = 10, command = self.nextImage)
@@ -195,6 +199,11 @@ class HomographyTool():
     def selectDesDir(self):
         path = filedialog.askdirectory(title="Select label output folder", initialdir=self.svDestinationPath.get())
         self.svDestinationPath.set(path)
+        return
+    
+    def selectSaveDir(self):
+        path = filedialog.askdirectory(title="Select folder to save result", initialdir=self.saveImgPath.get())
+        self.saveImgPath.set(path)
         return
 
     def loadDir(self):
