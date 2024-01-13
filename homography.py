@@ -1,7 +1,6 @@
 import os
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 
 
 
@@ -9,7 +8,7 @@ def show_xy(event,x,y,flags,userdata):
     if event == cv2.EVENT_LBUTTONDOWN:
         dst.append([x, y])
 
-def unwarp(img, dst):
+def unwarp(img, src, dst):
     """
     Args:
         img: np.array
@@ -18,12 +17,11 @@ def unwarp(img, dst):
     Returns:
         un_warped: np.array
     """
-    print(dst)
-    src = [[0,0], [870, 0], [870, 200], [0, 200]]
     h, w = img.shape[:2]
     M = cv2.getPerspectiveTransform(np.array(dst).astype(np.float32), np.array(src).astype(np.float32))
-    print('\nThe homography matrix is: \n', M)
-    un_warped = cv2.warpPerspective(img, M, (870, 800), flags=cv2.INTER_LINEAR)
+    max_v = np.max(src, axis=0)
+    W, H = int(max_v[0]), int(max_v[1])
+    un_warped = cv2.warpPerspective(img, M, (W, H), flags=cv2.INTER_LINEAR)
 
     return un_warped
 

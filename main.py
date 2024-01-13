@@ -2,7 +2,9 @@ from tkinter import *
 from tkinter import filedialog
 from tkinter import messagebox
 from tkinter import ttk
+import numpy as np
 from PIL import Image, ImageTk
+from homography import unwarp
 import os
 import glob
 import random
@@ -47,6 +49,15 @@ class HomographyTool():
         self.polygonID = None
         self.hl = None
         self.vl = None
+        
+        # reference to enlarged panel
+        self.cropID = None
+        self.h2 = None
+        self.v2 = None
+        
+        # reference to warped image
+        self.warpID = None
+        self.warpImg = None
 
         # ----------------- GUI stuff ---------------------
         # dir entry & load
@@ -54,7 +65,7 @@ class HomographyTool():
         self.svSourcePath = StringVar()
         self.entrySrc = Entry(self.frame, textvariable=self.svSourcePath)
         self.entrySrc.grid(row=0, column=0, columnspan=2, padx=2, sticky=W+E)
-        self.svSourcePath.set(os.path.join(os.getcwd(),"Images"))
+        self.svSourcePath.set("C:/Users/vince/OneDrive - g.ntu.edu.tw/桌面/DamageIndex/鄭維中矩柱試驗資料/C307試驗照片/C307NW")
         
         # input image dir button
         self.srcDirBtn = Button(self.frame, text="Folder of Raw Image", command=self.selectSrcDir)
@@ -86,22 +97,29 @@ class HomographyTool():
 
 
         # main panel for labeling
-        self.mainPanel = Canvas(self.frame, cursor='tcross')
+        self.mainPanel = Canvas(self.frame, cursor='tcross', bg="snow2")
         self.mainPanel.bind("<Button-1>", self.mouseClick)
         self.mainPanel.bind("<Motion>", self.mouseMove)
         self.parent.bind("<Escape>", self.cancelPolygon)  # press <Espace> to cancel current bbox
         self.parent.bind("s", self.cancelPolygon)
         self.parent.bind("a", self.prevImage) # press 'a' to go backforward
         self.parent.bind("d", self.nextImage) # press 'd' to go forward
-        self.mainPanel.grid(row = 3, column = 0, rowspan = 2, columnspan=2, sticky = W+N+E+S)
+        self.mainPanel.grid(row = 3, column = 0, rowspan = 2, sticky = W+N+E+S)
+        
         
         # example pannel for illustration
-        self.egPanel = Frame(self.frame)
-        self.egPanel.grid(row = 3, column = 1, sticky = W+N+E+S)
-        self.tmpLabel2 = Label(self.egPanel, text = "Results:")
+        self.egPanel = Frame(self.frame, bg="azure2")
+        self.egPanel.grid(row = 3, column = 1, rowspan = 2, sticky = W+N+E+S)
+        self.tmpLabel2 = Label(self.egPanel, text = "Results:", bg="azure2")
         self.tmpLabel2.pack(side = TOP, pady = 5)
-        self.result = Label(self.egPanel)
-        self.result.pack(side = TOP)
+        self.resultPanel = Canvas(self.egPanel, width=256, height=256, highlightthickness=2, highlightbackground="black", bg="azure2")
+        self.resultPanel.pack(side = TOP)
+        
+        self.enlarge = Canvas(self.egPanel, width=384, height=256, highlightthickness=2, highlightbackground="black", bg="azure2")
+        self.enlarge.pack(side = BOTTOM, pady = 20)
+        Label(self.egPanel, text = "Enlarged Image", bg="azure2").pack(side = BOTTOM, pady = 5)
+        
+        
         
         # Target Size
         self.targetPanel = Frame(self.frame)
@@ -146,17 +164,21 @@ class HomographyTool():
         self.point2y.set(800)
         self.point3x.set(750)
         self.point3y.set(800)
-        self.point4x.set(800)
+        self.point4x.set(750)
         self.point4y.set(0)
         
         # Drift Ratio and Cycles
         Label(self.targetPanel, text = 'Cycles', bg='yellow').grid(row = 9, column = 0, columnspan = 2, pady=10, sticky = W+E)
         self.drift = DoubleVar()
         Label(self.targetPanel, text = 'Drift Ratio (%)').grid(row = 10, column = 0, columnspan = 2, pady=5, sticky = W+E)
-        self.driftEntry = Entry(self.targetPanel, textvariable=self.drift).grid(row = 11, column = 0, columnspan = 2, sticky = W+E)
-        self.cycle = DoubleVar()
+        self.driftEntry = ttk.Combobox(self.targetPanel, textvariable=self.drift)
+        self.driftEntry["values"] = [0.25, 0.375, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0]
+        self.driftEntry.grid(row = 11, column = 0, columnspan = 2, sticky = W+E)
+        self.cycle = IntVar()
         Label(self.targetPanel, text = 'Cycle').grid(row = 12, column = 0, columnspan = 2, pady=5, sticky = W+E)
-        self.cycleEntry = Entry(self.targetPanel, textvariable=self.cycle).grid(row = 13, column = 0, columnspan = 2, sticky = W+E)
+        self.cycleEntry = ttk.Combobox(self.targetPanel, textvariable=self.cycle)
+        self.cycleEntry["values"] = [0, 1, 2, 3, 4, 5, 6]
+        self.cycleEntry.grid(row = 13, column = 0, columnspan = 2, sticky = W+E)
 
         # showing bbox info 
         self.lb1 = Label(self.targetPanel, text = 'Source Points', bg='yellow')
@@ -234,6 +256,9 @@ class HomographyTool():
         if not os.path.exists(self.outDir):
             os.mkdir(self.outDir)
             
+        if not os.path.exists(self.saveImgPath.get()):
+            os.mkdir(self.saveImgPath.get())
+            
         self.loadImage()
         print('%d images loaded from %s' %(self.total, self.imageDir))
 
@@ -245,10 +270,10 @@ class HomographyTool():
         if size[0] > size[1]:
             self.img = self.img.transpose(Image.ROTATE_270)
         size = self.img.size
-        self.factor = max(size[0]/1000, size[1]/1000., 1.)
-        self.img = self.img.resize((int(size[0]/self.factor), int(size[1]/self.factor)))
-        self.tkimg = ImageTk.PhotoImage(self.img)
-        self.mainPanel.config(width = max(self.tkimg.width(), 400), height = max(self.tkimg.height(), 400))
+        w, h = self.mainPanel.winfo_width(), self.mainPanel.winfo_height()
+        self.factor = max(size[0]/w, size[1]/h)
+        self.resize_img = self.img.resize((int(size[0]/self.factor), int(size[1]/self.factor)))
+        self.tkimg = ImageTk.PhotoImage(self.resize_img)
         self.mainPanel.create_image(0, 0, image = self.tkimg, anchor=NW)
         self.progLabel.config(text = "%04d/%04d" %(self.cur, self.total))
 
@@ -259,39 +284,37 @@ class HomographyTool():
         self.imagename, _ = os.path.splitext(fullfilename)
         labelname = self.imagename + '.txt'
         self.labelfilename = os.path.join(self.outDir, labelname)
-        bbox_cnt = 0
         if os.path.exists(self.labelfilename):
             with open(self.labelfilename) as f:
+                cropped = None
                 for (i, line) in enumerate(f):
-                    if i == 0:
-                        bbox_cnt = int(line.strip())
-                        continue
-                    #tmp = [int(t.strip()) for t in line.split()]
+                    if i == 4:
+                        cropped = line
+                        break
                     tmp = line.split()
                     tmp[0] = int(int(tmp[0])/self.factor)
                     tmp[1] = int(int(tmp[1])/self.factor)
-                    tmp[2] = int(int(tmp[2])/self.factor)
-                    tmp[3] = int(int(tmp[3])/self.factor)
-                    self.bboxList.append(tuple(tmp))
-                    color_index = (len(self.bboxList)-1) % len(COLORS)
-                    tmpId = self.mainPanel.create_rectangle(tmp[0], tmp[1], \
-                                                            tmp[2], tmp[3], \
-                                                            width = 2, \
-                                                            outline = COLORS[color_index])
-                                                            #outline = COLORS[(len(self.bboxList)-1) % len(COLORS)])
-                    self.bboxIdList.append(tmpId)
-                    self.listbox.insert(END, '(%d, %d) -> (%d, %d)' %(tmp[0], tmp[1], tmp[2], tmp[3]))
-                    self.listbox.itemconfig(len(self.bboxIdList) - 1, fg = COLORS[color_index])
-                    #self.listbox.itemconfig(len(self.bboxIdList) - 1, fg = COLORS[(len(self.bboxIdList) - 1) % len(COLORS)])
+                    self.listbox.insert(END, 'Point %d: (%d, %d)' %(i, tmp[0], tmp[1]))
+                    self.POINTS.append(tmp)
+                self.polygonID = self.mainPanel.create_polygon(self.POINTS, outline='red', width=2, fill='red', stipple='gray50')
+                if cropped:
+                    self.warpImg_save = Image.open(cropped)
+                    self.warpImg = ImageTk.PhotoImage(self.warpImg_save.resize((256, 256)))
+                    self.warpID = self.resultPanel.create_image(0, 0, image = self.warpImg, anchor=NW)
 
     def saveImage(self):
         if self.labelfilename == '':
             return
         with open(self.labelfilename, 'w') as f:
-            f.write('%d\n' %len(self.bboxList))
             for points in self.POINTS:
                 f.write("{} {}\n".format(int(int(points[0])*self.factor), int(int(points[1])*self.factor)))
                 #f.write(' '.join(map(str, bbox)) + '\n')
+            if self.warpImg_save:
+                basename = os.path.basename(self.imageDir)
+                exp, direction = basename[:-2], basename[-2:]
+                self.warpImg_save.save(os.path.join(self.saveImgPath.get(), f"{exp}_{direction}_{int(self.drift.get())*100:04d}_{self.cycle.get()}.jpg"))
+                f.write(os.path.join(self.saveImgPath.get(), f"{exp}_{direction}_{int(self.drift.get())*100:04d}_{self.cycle.get()}.jpg"))
+                
         print('Image No. %d saved' %(self.cur))
 
 
@@ -299,8 +322,19 @@ class HomographyTool():
         if len(self.POINTS) < 4:
             self.POINTS.append((event.x, event.y))
             self.listbox.insert(len(self.POINTS), 'Point %d: (%d, %d)' %(len(self.POINTS), self.POINTS[len(self.POINTS)-1][0], self.POINTS[len(self.POINTS)-1][1]))
+            if len(self.POINTS) == 4:
+                src = [(self.point1x.get(), self.point1y.get()), (self.point2x.get(), self.point2y.get()), (self.point3x.get(), self.point3y.get()), (self.point4x.get(), self.point4y.get())]
+                scale_point = []
+                for points in self.POINTS:
+                    scale_point.append((int(int(points[0])*self.factor), int(int(points[1])*self.factor)))
+                self.warpImg_save = Image.fromarray(unwarp(np.array(self.img), src, scale_point))
+                self.warpImg = ImageTk.PhotoImage(self.warpImg_save.resize((256, 256)))
+                self.warpID = self.resultPanel.create_image(0, 0, image = self.warpImg, anchor=NW)
+                
         else:
             self.listbox.delete(0, len(self.POINTS))
+            if self.warpID:
+                self.resultPanel.delete(self.warpID)
             self.POINTS = []
             self.POINTS.append((event.x, event.y))
             self.listbox.insert(len(self.POINTS), 'Point %d: (%d, %d)' %(len(self.POINTS), self.POINTS[len(self.POINTS)-1][0], self.POINTS[len(self.POINTS)-1][1]))
@@ -311,10 +345,28 @@ class HomographyTool():
         if self.tkimg:
             if self.hl:
                 self.mainPanel.delete(self.hl)
-            self.hl = self.mainPanel.create_line(0, event.y, self.tkimg.width(), event.y, width = 2)
             if self.vl:
                 self.mainPanel.delete(self.vl)
-            self.vl = self.mainPanel.create_line(event.x, 0, event.x, self.tkimg.height(), width = 2)
+            if self.cropID:
+                self.enlarge.delete("all")
+            if self.h2:
+                self.enlarge.delete(self.h2)
+            if self.v2:
+                self.enlarge.delete(self.v2)
+                
+            if event.x <= self.tkimg.width() and event.y <= self.tkimg.height():
+                self.hl = self.mainPanel.create_line(0, event.y, self.tkimg.width(), event.y, width = 2)
+                self.vl = self.mainPanel.create_line(event.x, 0, event.x, self.tkimg.height(), width = 2)
+        
+            if 75 <= event.x <= (self.tkimg.width() - 75) and 50 <= event.y <= (self.tkimg.height() - 50):
+                self.img_cropped = self.resize_img.crop((event.x-75, event.y-50, event.x+75, event.y+50))
+                self.img_cropped = self.img_cropped.resize((384, 256))
+                self.img_cropped = ImageTk.PhotoImage(self.img_cropped)
+                self.cropID = self.enlarge.create_image(0, 0, image=self.img_cropped, anchor=NW)
+                self.h2 = self.enlarge.create_line(182, 128, 202, 128, width = 2)
+                self.v2 = self.enlarge.create_line(192, 118, 192, 138, width = 2)
+
+            
         if 4 > len(self.POINTS) >= 1:
             if self.polygonID:
                 self.mainPanel.delete(self.polygonID)
@@ -326,10 +378,16 @@ class HomographyTool():
                 self.mainPanel.delete(self.polygonID)
                 self.polygonID = None
                 self.clearPoints()
+            if self.warpID:
+                self.resultPanel.delete(self.warpID)
 
     def clearPoints(self):
         if self.polygonID:
             self.mainPanel.delete(self.polygonID)
+        if self.warpID:
+            self.resultPanel.delete(self.warpID)
+        if self.warpImg:
+            self.warpImg = None
         self.listbox.delete(0, len(self.POINTS))
         self.POINTS = []
 
