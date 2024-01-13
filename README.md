@@ -4,7 +4,7 @@ Homography-Tool
 A simple tool for transforming images using homography, implemented with Python Tkinter.
 
 **Screenshot:**
-![Label Tool](./example.jpg)
+![Label Tool](./demo.png)
 
 Data Organization
 -----------------
