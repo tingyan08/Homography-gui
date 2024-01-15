@@ -366,13 +366,13 @@ class HomographyTool():
                 self.hl = self.mainPanel.create_line(0, event.y, self.tkimg.width(), event.y, width = 2)
                 self.vl = self.mainPanel.create_line(event.x, 0, event.x, self.tkimg.height(), width = 2)
         
-            if 75 <= event.x <= (self.tkimg.width() - 75) and 50 <= event.y <= (self.tkimg.height() - 50):
-                self.img_cropped = self.resize_img.crop((event.x-75, event.y-50, event.x+75, event.y+50))
+            if 60 <= event.x <= (self.tkimg.width() - 60) and 40 <= event.y <= (self.tkimg.height() - 40):
+                self.img_cropped = self.resize_img.crop((event.x-60, event.y-40, event.x+60, event.y+40))
                 self.img_cropped = self.img_cropped.resize((384, 256))
                 self.img_cropped = ImageTk.PhotoImage(self.img_cropped)
                 self.cropID = self.enlarge.create_image(0, 0, image=self.img_cropped, anchor=NW)
-                self.h2 = self.enlarge.create_line(182, 128, 202, 128, width = 2)
-                self.v2 = self.enlarge.create_line(192, 118, 192, 138, width = 2)
+                self.h2 = self.enlarge.create_line(162, 128, 222, 128, width = 2)
+                self.v2 = self.enlarge.create_line(192, 98, 192, 158, width = 2)
 
             
         if 4 > len(self.POINTS) >= 1:
