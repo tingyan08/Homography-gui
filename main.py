@@ -65,7 +65,7 @@ class HomographyTool():
         self.svSourcePath = StringVar()
         self.entrySrc = Entry(self.frame, textvariable=self.svSourcePath)
         self.entrySrc.grid(row=0, column=0, columnspan=2, padx=2, sticky=W+E)
-        self.svSourcePath.set("C:/Users/vince/OneDrive - g.ntu.edu.tw/桌面/DamageIndex/鄭維中矩柱試驗資料/C307試驗照片/C307NW")
+        self.svSourcePath.set("D:/鄭維中矩柱試驗資料/C307試驗照片/C307NW")
         
         # input image dir button
         self.srcDirBtn = Button(self.frame, text="Folder of Raw Image", command=self.selectSrcDir)
@@ -172,7 +172,7 @@ class HomographyTool():
         self.drift = DoubleVar()
         Label(self.targetPanel, text = 'Drift Ratio (%)').grid(row = 10, column = 0, columnspan = 2, pady=5, sticky = W+E)
         self.driftEntry = ttk.Combobox(self.targetPanel, textvariable=self.drift)
-        self.driftEntry["values"] = [0.25, 0.375, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0]
+        self.driftEntry["values"] = [0.0, 0.25, 0.375, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0]
         self.driftEntry.grid(row = 11, column = 0, columnspan = 2, sticky = W+E)
         self.cycle = IntVar()
         Label(self.targetPanel, text = 'Cycle').grid(row = 12, column = 0, columnspan = 2, pady=5, sticky = W+E)
@@ -237,7 +237,7 @@ class HomographyTool():
             messagebox.showerror("Error!", message = "The specified dir doesn't exist!")
             return
 
-        extlist = ["*.JPEG", "*.jpeg", "*JPG", "*.jpg", "*.PNG", "*.png", "*.BMP", "*.bmp"]
+        extlist = ["*.JPEG", "*.JPG", "*.PNG", "*.BMP"]
         for e in extlist:
             filelist = glob.glob(os.path.join(self.imageDir, e))
             self.imageList.extend(filelist)
@@ -283,7 +283,9 @@ class HomographyTool():
         fullfilename = os.path.basename(imagepath)
         self.imagename, _ = os.path.splitext(fullfilename)
         labelname = self.imagename + '.txt'
-        self.labelfilename = os.path.join(self.outDir, labelname)
+        basename = os.path.basename(self.imageDir)
+        exp, direction = basename[:-2], basename[-2:]
+        self.labelfilename = os.path.join(self.outDir, exp, labelname)
         if os.path.exists(self.labelfilename):
             with open(self.labelfilename) as f:
                 cropped = None
@@ -296,11 +298,17 @@ class HomographyTool():
                     tmp[1] = int(int(tmp[1])/self.factor)
                     self.listbox.insert(END, 'Point %d: (%d, %d)' %(i, tmp[0], tmp[1]))
                     self.POINTS.append(tmp)
-                self.polygonID = self.mainPanel.create_polygon(self.POINTS, outline='red', width=2, fill='red', stipple='gray50')
+                if len(self.POINTS) == 4:
+                    self.polygonID = self.mainPanel.create_polygon(self.POINTS, outline='red', width=2, fill='red', stipple='gray50')
                 if cropped:
                     self.warpImg_save = Image.open(cropped)
                     self.warpImg = ImageTk.PhotoImage(self.warpImg_save.resize((256, 256)))
                     self.warpID = self.resultPanel.create_image(0, 0, image = self.warpImg, anchor=NW)
+                    basename = os.path.basename(cropped)
+                    basename = os.path.splitext(basename)[0]
+                    self.drift.set(float(basename.split('_')[-2])/1000.)
+                    self.cycle.set(int(basename.split('_')[-1]))
+        
 
     def saveImage(self):
         if self.labelfilename == '':
@@ -309,11 +317,11 @@ class HomographyTool():
             for points in self.POINTS:
                 f.write("{} {}\n".format(int(int(points[0])*self.factor), int(int(points[1])*self.factor)))
                 #f.write(' '.join(map(str, bbox)) + '\n')
-            if self.warpImg_save:
+            if self.warpImg_save and len(self.POINTS) == 4:
                 basename = os.path.basename(self.imageDir)
                 exp, direction = basename[:-2], basename[-2:]
-                self.warpImg_save.save(os.path.join(self.saveImgPath.get(), f"{exp}_{direction}_{int(self.drift.get())*100:04d}_{self.cycle.get()}.jpg"))
-                f.write(os.path.join(self.saveImgPath.get(), f"{exp}_{direction}_{int(self.drift.get())*100:04d}_{self.cycle.get()}.jpg"))
+                self.warpImg_save.save(os.path.join(self.saveImgPath.get(), f"{exp}_{direction}_{int(self.drift.get()*1000):05d}_{self.cycle.get()}.jpg"))
+                f.write(os.path.join(self.saveImgPath.get(), f"{exp}_{direction}_{int(self.drift.get()*1000):05d}_{self.cycle.get()}.jpg"))
                 
         print('Image No. %d saved' %(self.cur))
 
