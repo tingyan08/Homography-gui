@@ -371,8 +371,8 @@ class HomographyTool():
                 self.img_cropped = self.img_cropped.resize((384, 256))
                 self.img_cropped = ImageTk.PhotoImage(self.img_cropped)
                 self.cropID = self.enlarge.create_image(0, 0, image=self.img_cropped, anchor=NW)
-                self.h2 = self.enlarge.create_line(162, 128, 222, 128, width = 2)
-                self.v2 = self.enlarge.create_line(192, 98, 192, 158, width = 2)
+                self.h2 = self.enlarge.create_line(172, 128, 212, 128, width = 2)
+                self.v2 = self.enlarge.create_line(192, 108, 192, 148, width = 2)
 
             
         if 4 > len(self.POINTS) >= 1:
