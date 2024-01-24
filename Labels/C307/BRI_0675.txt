@@ -2,4 +2,4 @@
 260 1762
 808 1869
 745 687
-D:\Homography-Tool\Cropped\C307_NW_00000_0.jpg
+.\Cropped\C307_NW_00000_0.jpg
