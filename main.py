@@ -112,7 +112,7 @@ class HomographyTool():
         self.egPanel.grid(row = 3, column = 1, rowspan = 2, sticky = W+N+E+S)
         self.tmpLabel2 = Label(self.egPanel, text = "Results:", bg="azure2")
         self.tmpLabel2.pack(side = TOP, pady = 5)
-        self.resultPanel = Canvas(self.egPanel, width=256, height=256, highlightthickness=2, highlightbackground="black", bg="azure2")
+        self.resultPanel = Canvas(self.egPanel, width=400, height=400, highlightthickness=2, highlightbackground="black", bg="azure2")
         self.resultPanel.pack(side = TOP)
         
         self.enlarge = Canvas(self.egPanel, width=384, height=256, highlightthickness=2, highlightbackground="black", bg="azure2")
@@ -162,9 +162,9 @@ class HomographyTool():
         self.point1y.set(0)
         self.point2x.set(0)
         self.point2y.set(800)
-        self.point3x.set(750)
+        self.point3x.set(870)
         self.point3y.set(800)
-        self.point4x.set(750)
+        self.point4x.set(870)
         self.point4y.set(0)
         
         # Drift Ratio and Cycles
@@ -268,7 +268,7 @@ class HomographyTool():
         self.img = Image.open(imagepath)
         size = self.img.size
         if size[0] > size[1]:
-            self.img = self.img.transpose(Image.ROTATE_270)
+            self.img = self.img.transpose(Image.ROTATE_90)
         size = self.img.size
         w, h = self.mainPanel.winfo_width(), self.mainPanel.winfo_height()
         self.factor = max(size[0]/w, size[1]/h)
@@ -302,8 +302,8 @@ class HomographyTool():
                     self.polygonID = self.mainPanel.create_polygon(self.POINTS, outline='red', width=2, fill='red', stipple='gray50')
                 if cropped:
                     self.warpImg_save = Image.open(cropped)
-                    self.warpImg = ImageTk.PhotoImage(self.warpImg_save.resize((256, 256)))
-                    self.warpID = self.resultPanel.create_image(0, 0, image = self.warpImg, anchor=NW)
+                    self.warpImg = ImageTk.PhotoImage(self.warpImg_save.resize((384, 384)))
+                    self.warpID = self.resultPanel.create_image(200, 200, image = self.warpImg, anchor=CENTER)
                     basename = os.path.basename(cropped)
                     basename = os.path.splitext(basename)[0]
                     self.drift.set(float(basename.split('_')[-2])/1000.)
@@ -336,8 +336,8 @@ class HomographyTool():
                 for points in self.POINTS:
                     scale_point.append((int(int(points[0])*self.factor), int(int(points[1])*self.factor)))
                 self.warpImg_save = Image.fromarray(unwarp(np.array(self.img), src, scale_point))
-                self.warpImg = ImageTk.PhotoImage(self.warpImg_save.resize((256, 256)))
-                self.warpID = self.resultPanel.create_image(0, 0, image = self.warpImg, anchor=NW)
+                self.warpImg = ImageTk.PhotoImage(self.warpImg_save.resize((384, 384)))
+                self.warpID = self.resultPanel.create_image(200, 200, image = self.warpImg, anchor=CENTER)
                 
         else:
             self.listbox.delete(0, len(self.POINTS))
